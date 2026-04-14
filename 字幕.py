@@ -9,8 +9,7 @@ import os
 # ⚠️ 這是你的真實金鑰，請務必確保你的 GitHub 倉庫是「私密 (Private)」的！
 MY_API_KEY = "AIzaSyBnBZLt4PZg92PgY5kkt5LE7imjaZDZKi4"
 
-# 目前預設使用 "gemini-1.5-pro" (旗艦版，最聰明、最精準)
-# 如果你覺得 Pro 版速度有點慢，可以隨時改成 "gemini-1.5-flash" (極速版)
+# 使用極速版，速度最快且最穩定，不會報錯
 AI_MODEL_NAME = "gemini-1.5-flash" 
 
 # 讓系統直接吃你的金鑰
@@ -119,7 +118,6 @@ def main():
     with col_out:
         st.subheader("📤 校正結果")
         if st.button("🚀 開始執行", use_container_width=True):
-            # 這裡已經完美修復！
             if not MY_API_KEY:
                 st.error("⚠️ 錯誤：你還沒有在程式碼第 10 行輸入真實的 API Key！")
             elif not uploaded_file and not manual_text:
