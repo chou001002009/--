@@ -63,6 +63,28 @@ def process_content(series, uploaded_file=None, manual_text=None):
             if chunk.text: yield chunk.text
             
    # --- 2. 處理檔案上傳 (Windows 穩定版) ---
+    def process_content(series, uploaded_file=None, manual_text=None):
+    # --- 優化參數設定：加入高精度配置 ---
+    generation_config = {
+        "temperature": 0.05,        # 降到最低，防止 AI 亂編或跳字
+        "top_p": 1,
+        "max_output_tokens": 8192, # 確保長篇內容不會被強行切斷
+    }
+    
+    # 建立模型時套用優化設定
+    model = genai.GenerativeModel(
+        model_name=AI_MODEL_NAME,
+        generation_config=generation_config
+    )
+    
+    # 1. 處理手動輸入文字 (保持不變)
+    if manual_text and not uploaded_file:
+        prompt = f"影片系列：{series}\n請精準校正以下逐字稿文字，不可遺漏內容：\n\n{manual_text}"
+        response = model.generate_content([SYSTEM_INSTRUCTION, prompt], stream=True)
+        for chunk in response:
+            if chunk.text: yield chunk.text
+            
+    # 2. 處理檔案上傳
     elif uploaded_file is not None:
         file_ext = uploaded_file.name.split('.')[-1].lower()
         
@@ -73,61 +95,43 @@ def process_content(series, uploaded_file=None, manual_text=None):
             for chunk in response:
                 if chunk.text: yield chunk.text
         else:
-            # 【關鍵優化】：強迫使用「英文暫存檔名」，避免 Windows 中文路徑報錯
-            temp_path = f"temp_workfile.{file_ext}" 
+            temp_path = f"temp_{uploaded_file.name}"
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
             
-            try:
-                # 寫入檔案
-                with open(temp_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                
-                audio_file = genai.upload_file(path=temp_path)
-                
-                # 狀態檢查
-                max_retries = 30
-                retries = 0
-                while audio_file.state.name == "PROCESSING" and retries < max_retries:
-                    time.sleep(2)
-                    audio_file = genai.get_file(audio_file.name)
-                    retries += 1
-                
-                if audio_file.state.name != "ACTIVE":
-                    yield f"❌ 檔案處理失敗：{audio_file.state.name}"
-                    return
+            audio_file = genai.upload_file(path=temp_path)
+            
+            # 狀態檢查 (保持不變)
+            max_retries = 30
+            retries = 0
+            while audio_file.state.name == "PROCESSING" and retries < max_retries:
+                time.sleep(2)
+                audio_file = genai.get_file(audio_file.name)
+                retries += 1
+            
+            if audio_file.state.name != "ACTIVE":
+                yield f"❌ 檔案處理失敗：{audio_file.state.name}"
+                return
 
-                # 高精度 Prompt
-                prompt = (
-                    f"這是「{series}」系列的完整音軌。\n"
-                     "⚠️ 重要指令：這是一個逐字稿聽寫任務，我需要 100% 的全文還原。\n"
-                     "1. 禁止摘要！禁止總結！禁止刪減任何對話！\n"
-                     "2. 聽到的每一個字都要寫下來，包含重複的詞彙。\n"
-                     "3. 如果內容很長，請持續輸出直到最後一個字為止。\n"
-                     "4. 優先保證內容的完整度，其次才是校正規則。"
-                )
+            # --- 優化 Prompt：強調「全文逐字」 ---
+            prompt = (
+                f"這是一段「{series}」系列的專業影音。你的任務是：\n"
+                "1. 必須『全文還原』，絕對不可漏掉任何一句話。\n"
+                "2. 針對語氣模糊的地方，請根據上下文推論最準確的詞語。\n"
+                "3. 嚴格執行 Sunny 營養師的校正規則，但優先保證內容完整。\n"
+                "4. 即使語句重複，也請完整記錄下來。"
+            )
 
-                response = model.generate_content(
-                    [audio_file, "\n\n", SYSTEM_INSTRUCTION, prompt],
-                    request_options={"timeout": 600},
-                    stream=True
-                )
-                for chunk in response:
-                    if chunk.text: yield chunk.text
+            response = model.generate_content(
+                [audio_file, "\n\n", SYSTEM_INSTRUCTION, prompt],
+                request_options={"timeout": 600},
+                stream=True
+            )
+            for chunk in response:
+                if chunk.text: yield chunk.text
                 
-                # 刪除雲端檔案
-                genai.delete_file(audio_file.name)
-
-            except Exception as e:
-                yield f"發生錯誤：{e}"
-                
-            finally:
-                # 【關鍵優化】：確保檔案關閉後再刪除，並等待 1 秒讓 Windows 釋放檔案
-                time.sleep(1)
-                if os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except:
-                        pass # 如果 Windows 還是鎖死刪不掉，就先不管它，不影響程式執行
-
+            os.remove(temp_path)
+            genai.delete_file(audio_file.name)
 # ==========================================
 # 3. Streamlit 介面
 # ==========================================
