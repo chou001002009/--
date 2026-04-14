@@ -3,6 +3,15 @@ import google.generativeai as genai
 import time
 import os
 
+
+with st.sidebar:
+    st.write(f"系統套件版本: {genai.__version__}")
+    try:
+        models = [m.name for m in genai.list_models()]
+        st.write("目前可用的模型清單：")
+        st.write(models)
+    except Exception as e:
+        st.error(f"無法列出模型清單：{e}")
 # ==========================================
 # 0. 系統核心設定 (保險箱模式)
 # ==========================================
