@@ -64,27 +64,35 @@ def process_content(series, uploaded_file=None, manual_text=None):
             response = model.generate_content([SYSTEM_INSTRUCTION, prompt], stream=True)
             for chunk in response:
                 if chunk.text: yield chunk.text
+        # 處理音軌或影片檔
         else:
             temp_path = f"temp_{uploaded_file.name}"
             with open(temp_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
+            status_msg.info(f"正在上傳檔案：{uploaded_file.name}...")
             audio_file = genai.upload_file(path=temp_path)
-            while audio_file.state.name == "PROCESSING":
+            
+            # --- 強化的檢查機制 ---
+            max_retries = 30  # 最多等一分鐘
+            retries = 0
+            while audio_file.state.name == "PROCESSING" and retries < max_retries:
                 time.sleep(2)
                 audio_file = genai.get_file(audio_file.name)
+                retries += 1
             
+            if audio_file.state.name != "ACTIVE":
+                st.error(f"❌ 檔案處理失敗或超時，目前狀態：{audio_file.state.name}")
+                return
+            # --------------------
+
+            status_msg.info("檔案已就緒，AI 開始校正中...")
             prompt = f"這是「{series}」系列的影片音軌，請聽取內容並依照規則生成校正後的純文字逐字稿。"
             response = model.generate_content(
                 [audio_file, "\n\n", SYSTEM_INSTRUCTION, prompt],
                 request_options={"timeout": 600},
                 stream=True
             )
-            for chunk in response:
-                if chunk.text: yield chunk.text
-                
-            os.remove(temp_path)
-            genai.delete_file(audio_file.name)
             
     elif manual_text:
         prompt = f"影片系列：{series}\n請校正以下逐字稿文字：\n\n{manual_text}"
