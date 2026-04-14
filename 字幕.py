@@ -118,8 +118,10 @@ def main():
     with col_out:
         st.subheader("📤 校正結果")
         if st.button("🚀 開始執行", use_container_width=True):
-            if MY_API_KEY == "AIzaSyBnBZLt4PZg92PgY5kkt5LE7imjaZDZKi4" or not MY_API_KEY:
-                st.error("⚠️ 錯誤：你還沒有在程式碼第 10 行輸入真實的 API Key！")
+           if not MY_API_KEY:
+           st.error("⚠️ 錯誤：你還沒有在程式碼第 10 行輸入真實的 API Key！")
+           
+            
             elif not uploaded_file and not manual_text:
                 st.warning("⚠️ 請先提供檔案或貼入文字")
             else:
