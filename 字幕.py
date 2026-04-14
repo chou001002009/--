@@ -4,9 +4,9 @@ import time
 import os
 
 # ==========================================
-# 0. 系統核心設定 (請在這裡輸入你的金鑰)
+# 0. 系統核心設定
 # ==========================================
-# ⚠️ 請將下方的字串替換成你真實的 API Key，務必保留前後的雙引號
+# ⚠️ 這是你的真實金鑰，請務必確保你的 GitHub 倉庫是「私密 (Private)」的！
 MY_API_KEY = "AIzaSyBnBZLt4PZg92PgY5kkt5LE7imjaZDZKi4"
 
 # 目前預設使用 "gemini-1.5-pro" (旗艦版，最聰明、最精準)
@@ -14,7 +14,8 @@ MY_API_KEY = "AIzaSyBnBZLt4PZg92PgY5kkt5LE7imjaZDZKi4"
 AI_MODEL_NAME = "gemini-1.5-pro" 
 
 # 讓系統直接吃你的金鑰
-genai.configure(api_key=MY_API_KEY)
+if MY_API_KEY:
+    genai.configure(api_key=MY_API_KEY)
 
 # ==========================================
 # 1. 頻道專屬設定
@@ -118,10 +119,9 @@ def main():
     with col_out:
         st.subheader("📤 校正結果")
         if st.button("🚀 開始執行", use_container_width=True):
-           if not MY_API_KEY:
-           st.error("⚠️ 錯誤：你還沒有在程式碼第 10 行輸入真實的 API Key！")
-           
-            
+            # 這裡已經完美修復！
+            if not MY_API_KEY:
+                st.error("⚠️ 錯誤：你還沒有在程式碼第 10 行輸入真實的 API Key！")
             elif not uploaded_file and not manual_text:
                 st.warning("⚠️ 請先提供檔案或貼入文字")
             else:
