@@ -18,7 +18,7 @@ def get_api_key():
 MY_API_KEY = get_api_key()
 
 # ⚠️ 建議：如果 Flash 效果不佳，可手動將下方改為 "gemini-1.5-pro"
-AI_MODEL_NAME = "models/gemini-pro-latest"
+AI_MODEL_NAME = "models/gemini-2.5-pro"
 
 if MY_API_KEY:
     genai.configure(api_key=MY_API_KEY)
