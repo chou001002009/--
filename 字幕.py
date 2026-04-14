@@ -11,7 +11,7 @@ MY_API_KEY = "AIzaSyBnBZLt4PZg92PgY5kkt5LE7imjaZDZKi4"
 
 # 目前預設使用 "gemini-1.5-pro" (旗艦版，最聰明、最精準)
 # 如果你覺得 Pro 版速度有點慢，可以隨時改成 "gemini-1.5-flash" (極速版)
-AI_MODEL_NAME = "gemini-1.5-pro" 
+AI_MODEL_NAME = "gemini-1.5-pro-latest" 
 
 # 讓系統直接吃你的金鑰
 if MY_API_KEY:
