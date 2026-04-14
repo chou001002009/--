@@ -19,7 +19,7 @@ def get_api_key():
     return os.environ.get("GEMINI_API_KEY", "")
 
 MY_API_KEY = get_api_key()
-AI_MODEL_NAME = "gemini-1.5-flash" 
+AI_MODEL_NAME = "gemini-pro" 
 
 if MY_API_KEY:
     genai.configure(api_key=MY_API_KEY)
