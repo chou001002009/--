@@ -62,52 +62,68 @@ def process_content(series, uploaded_file=None, manual_text=None):
         for chunk in response:
             if chunk.text: yield chunk.text
             
-    # 處理檔案上傳
+   # --- 2. 處理檔案上傳 (Windows 穩定版) ---
     elif uploaded_file is not None:
         file_ext = uploaded_file.name.split('.')[-1].lower()
         
-        # 文字檔直接處理
         if file_ext == 'txt':
             content = uploaded_file.read().decode("utf-8")
-            prompt = f"影片系列：{series}\n請校正以下逐字稿文字：\n\n{content}"
+            prompt = f"影片系列：{series}\n請精準校正以下文字，絕對不可刪減原文內容：\n\n{content}"
             response = model.generate_content([SYSTEM_INSTRUCTION, prompt], stream=True)
             for chunk in response:
                 if chunk.text: yield chunk.text
-                
-        # 影音檔案需要先上傳至 Google 伺服器
         else:
-            temp_path = f"temp_{uploaded_file.name}"
-            with open(temp_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+            # 【關鍵優化】：強迫使用「英文暫存檔名」，避免 Windows 中文路徑報錯
+            temp_path = f"temp_workfile.{file_ext}" 
             
-            # 上傳檔案
-            audio_file = genai.upload_file(path=temp_path)
-            
-            # --- 強化版狀態檢查 ---
-            max_retries = 30
-            retries = 0
-            while audio_file.state.name == "PROCESSING" and retries < max_retries:
-                time.sleep(2)
-                audio_file = genai.get_file(audio_file.name)
-                retries += 1
-            
-            if audio_file.state.name != "ACTIVE":
-                yield f"❌ 檔案處理失敗，請重試。狀態：{audio_file.state.name}"
-                return
-            # --------------------
-
-            prompt = f"這是「{series}」系列的影片音軌，請聽取內容並依照規則生成校正後的純文字逐字稿。"
-            response = model.generate_content(
-                [audio_file, "\n\n", SYSTEM_INSTRUCTION, prompt],
-                request_options={"timeout": 600},
-                stream=True
-            )
-            for chunk in response:
-                if chunk.text: yield chunk.text
+            try:
+                # 寫入檔案
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
                 
-            # 清理暫存
-            os.remove(temp_path)
-            genai.delete_file(audio_file.name)
+                audio_file = genai.upload_file(path=temp_path)
+                
+                # 狀態檢查
+                max_retries = 30
+                retries = 0
+                while audio_file.state.name == "PROCESSING" and retries < max_retries:
+                    time.sleep(2)
+                    audio_file = genai.get_file(audio_file.name)
+                    retries += 1
+                
+                if audio_file.state.name != "ACTIVE":
+                    yield f"❌ 檔案處理失敗：{audio_file.state.name}"
+                    return
+
+                # 高精度 Prompt
+                prompt = (
+                    f"這是一段「{series}」系列的影音。請執行『全文精準還原』，\n"
+                    "絕對不可漏掉任何一句話，即使是重複的對話也要寫下來。\n"
+                    "請嚴格執行 Sunny 營養師的校正規則。"
+                )
+
+                response = model.generate_content(
+                    [audio_file, "\n\n", SYSTEM_INSTRUCTION, prompt],
+                    request_options={"timeout": 600},
+                    stream=True
+                )
+                for chunk in response:
+                    if chunk.text: yield chunk.text
+                
+                # 刪除雲端檔案
+                genai.delete_file(audio_file.name)
+
+            except Exception as e:
+                yield f"發生錯誤：{e}"
+                
+            finally:
+                # 【關鍵優化】：確保檔案關閉後再刪除，並等待 1 秒讓 Windows 釋放檔案
+                time.sleep(1)
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass # 如果 Windows 還是鎖死刪不掉，就先不管它，不影響程式執行
 
 # ==========================================
 # 3. Streamlit 介面
